@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# Streamlit
+.streamlit/
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Secrets
+.env
+
+# Environment variables
+.env
