@@ -1,21 +1,35 @@
+WITH attendance_summary AS (
+    SELECT
+        student_id,
+        COUNT(*) AS total_sessions,
+        COUNT(*) FILTER (WHERE attended = true) AS attended_sessions
+    FROM sessions
+    GROUP BY student_id
+),
+
+latest_assessment AS (
+    SELECT DISTINCT ON (student_id)
+        student_id,
+        assessment_date
+    FROM assessments
+    ORDER BY student_id, assessment_date DESC
+)
+
 SELECT
+    st.student_id,
     st.student_name AS "Student",
     st.english_level AS "Level",
     ROUND(
-        100.0 * COUNT(*) FILTER (WHERE se.attended = true) / COUNT(*),
+        100.0 * COALESCE(att.attended_sessions, 0) / NULLIF(att.total_sessions, 0),
         1
     ) AS "Attendance",
     CASE
-        WHEN a.student_id IS NULL THEN 'Not Assessed'
-        ELSE 'Assessed'
-    END AS "Assessment"
+        WHEN la.assessment_date IS NULL THEN 'Not Assessed'
+        ELSE TO_CHAR(la.assessment_date, 'Mon DD, YYYY')
+    END AS "Last Assessment"
 FROM students st
-LEFT JOIN sessions se
-    ON st.student_id = se.student_id
-LEFT JOIN assessments a
-    ON st.student_id = a.student_id
-GROUP BY
-    st.student_name,
-    st.english_level,
-    a.student_id
+LEFT JOIN attendance_summary att
+    ON st.student_id = att.student_id
+LEFT JOIN latest_assessment la
+    ON st.student_id = la.student_id
 ORDER BY st.student_name;
