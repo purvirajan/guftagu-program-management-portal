@@ -1,5 +1,7 @@
 import streamlit as st
 from database import run_query
+from styles import load_css
+import pandas as pd
 
 st.set_page_config(
     page_title="Student Profile",
@@ -7,47 +9,19 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-}
+load_css()
+from auth import require_login, logout_button, get_current_student_id
+require_login()
+logout_button()
 
-h1 {
-    color: #2C5282;
-    font-size: 2.5rem;
-    font-weight: 700;
-}
+user_id = st.session_state.get("user_id")
+selected_role = st.session_state.get("selected_role")
 
-[data-testid="stMetric"] {
-    background: linear-gradient(135deg, #E8F1FD, #FFFFFF);
-    border-left: 6px solid #4285F4;
-    padding: 1rem;
-    border-radius: 14px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-}
-
-.stButton > button {
-    width: 100%;
-    background-color: #4285F4;
-    color: white;
-    border-radius: 10px;
-    border: none;
-    font-weight: 600;
-}
-
-.stButton > button:hover {
-    background-color: #2C5282;
-}
-</style>
-""", unsafe_allow_html=True)
-
-if "selected_student_id" not in st.session_state:
-    st.warning("Please select a student from the Student Directory.")
+if user_id is None:
+    st.warning("Please log in from the homepage.")
     st.stop()
 
-student_id = st.session_state["selected_student_id"]
+student_id = get_current_student_id()
 
 student_info = run_query(f"""
 SELECT
@@ -57,6 +31,24 @@ SELECT
     date_enrolled
 FROM students
 WHERE student_id = {student_id};
+""")
+
+mentor_history = run_query(f"""
+SELECT
+    m.mentor_name,
+    sm.start_date,
+    sm.end_date,
+    CONCAT(
+    EXTRACT(MONTH FROM AGE(COALESCE(sm.end_date, CURRENT_DATE), sm.start_date)),
+    ' months ',
+    EXTRACT(DAY FROM AGE(COALESCE(sm.end_date, CURRENT_DATE), sm.start_date)),
+    ' days'
+) AS time_mentored
+FROM student_mentors sm
+JOIN mentors m
+    ON sm.mentor_id = m.mentor_id
+WHERE sm.student_id = {student_id}
+ORDER BY sm.end_date IS NOT NULL, sm.start_date DESC;
 """)
 
 student = student_info.iloc[0]
@@ -100,6 +92,27 @@ with col2:
 with col3:
     st.metric("Sessions Completed", f"{attended_sessions} / {total_sessions}")
 
+st.divider()
+st.subheader("Mentor History")
+
+if mentor_history.empty:
+    st.info("No mentor records found.")
+else:
+    for index, row in mentor_history.iterrows():
+        if pd.isna(row["end_date"]):
+            label = "Current Mentor"
+        else:
+            label = "Previous Mentor"
+
+        with st.container(border=True):
+            st.write(f"**{label}:** {row['mentor_name']}")
+            st.write(f"**Start Date:** {row['start_date']}")
+
+            if pd.notna(row["end_date"]):
+                st.write(f"**End Date:** {row['end_date']}")
+
+            st.write(f"**Time Mentored:** {row['time_mentored']}")
+            
 assessment_history = run_query(f"""
 SELECT
     assessment_level,
@@ -128,8 +141,26 @@ st.subheader("Assessment History")
 if assessment_history.empty:
     st.info("No assessment recorded yet.")
 else:
-    st.dataframe(
-        assessment_history,
-        use_container_width=True,
-        hide_index=True
-    )
+    for index, row in assessment_history.iterrows():
+        with st.container(border=True):
+            st.markdown(
+                f"**{row['assessment_level']} Assessment**  \n"
+                f"Attempt {row['attempt_number']} · {row['assessment_date']}"
+            )
+
+            score_map = {
+                "Confidence & Fluency": row["confidence_fluency_score"],
+                "Comprehension": row["comprehension_score"],
+                "Verb Usage": row["verb_usage_score"],
+                "Pronunciation": row["pronunciation_score"]
+            }
+
+            for label, score in score_map.items():
+                st.write(f"**{label}:** {score} / 4")
+
+            if st.button("View Rubric", key=f"rubric_{index}"):
+                st.switch_page("pages/6_Assessment_Framework.py")
+
+
+
+            

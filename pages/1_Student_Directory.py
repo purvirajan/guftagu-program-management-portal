@@ -1,68 +1,30 @@
 import streamlit as st
 from database import run_query, load_sql
-
+from styles import load_css
 st.set_page_config(
     page_title="Student Directory",
     page_icon="📚",
     layout="wide"
 )
 
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-}
+load_css()
+from auth import require_login, logout_button
 
-/* Page title */
-h1 {
-    color: #2C5282;
-    font-size: 2.5rem;
-    font-weight: 700;
-}
-
-/* Metric cards */
-[data-testid="stMetric"] {
-    background: linear-gradient(135deg, #E8F1FD, #FFFFFF);
-    border-left: 6px solid #4285F4;
-    padding: 1rem;
-    border-radius: 14px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-}
-
-/* Buttons */
-.stButton > button {
-    width: 100%;
-    background-color: #4285F4;
-    color: white;
-    border-radius: 10px;
-    border: none;
-    font-weight: 600;
-}
-
-.stButton > button:hover {
-    background-color: #2C5282;
-}
-</style>
-""", unsafe_allow_html=True)
+require_login()
+logout_button()
 
 st.title("Student Directory")
 
 query = load_sql("student_directory.sql")
 directory = run_query(query)
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns([2,1])
 
 with col1:
     search_term = st.text_input("Search Student Name")
 
-with col2:
-    assessment_filter = st.selectbox(
-        "Last Assessment",
-        ["All", "Beginner", "Not Assessed"]
-    )
 
-with col3:
+with col2:
     level_filter = st.selectbox(
         "English Level",
         ["All", "Beginner", "Intermediate", "Advanced"]
@@ -73,10 +35,7 @@ if search_term:
         directory["Student"].str.contains(search_term, case=False, na=False)
     ]
 
-if assessment_filter != "All":
-    directory = directory[
-        directory["Last Assessment"] == assessment_filter
-    ]
+
 
 if level_filter != "All":
     directory = directory[

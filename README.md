@@ -1,0 +1,1 @@
+This application was developed for the Guftagu spoken English mentorship program at the Aavishkaar Center. To protect participant privacy, the dashboard uses a synthetic dataset that preserves the structure, relationships, and workflows of the real program while containing no personally identifiable information.
